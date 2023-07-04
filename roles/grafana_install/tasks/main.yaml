@@ -11,3 +11,6 @@
     operator_namespace: openshift-operators
     channel: alpha
     catalog_source: community-operators
+
+- name: Setup Grafana
+  ansible.builtin.include_tasks: grafana.yaml
