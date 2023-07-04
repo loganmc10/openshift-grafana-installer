@@ -17,3 +17,6 @@
 
 - name: Setup Loki Datasource
   ansible.builtin.include_tasks: loki.yaml
+
+- name: Setup Prometheus Datasource
+  ansible.builtin.include_tasks: prom.yaml

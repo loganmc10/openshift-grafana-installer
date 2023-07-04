@@ -110,7 +110,7 @@
           name: "Loki ({{ item }})"
           type: loki
           access: proxy
-          url: https://logging-loki-gateway-http.openshift-logging.svc:8080/api/logs/v1/{{ item }}/
+          url: https://logging-loki-gateway-http.openshift-logging.svc.cluster.local:8080/api/logs/v1/{{ item }}/
           jsonData:
             "tlsSkipVerify": true
             "httpHeaderName1": Authorization
