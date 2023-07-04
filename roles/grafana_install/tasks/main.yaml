@@ -14,3 +14,6 @@
 
 - name: Setup Grafana
   ansible.builtin.include_tasks: grafana.yaml
+
+- name: Setup Loki Datasource
+  ansible.builtin.include_tasks: loki.yaml

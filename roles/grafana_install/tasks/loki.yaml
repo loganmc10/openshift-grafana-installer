@@ -1,0 +1,122 @@
+- name: Create Loki Reader ClusterRole
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: logging-logs-reader
+      rules:
+        - apiGroups:
+            - loki.grafana.com
+          resourceNames:
+            - logs
+          resources:
+            - application
+            - infrastructure
+            - audit
+          verbs:
+            - get
+    apply: true
+    state: present
+  register: k8s_result
+  until: k8s_result is not failed
+
+- name: Create Loki Reader ClusterRoleBinding
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: logging-grafana-logs-reader
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: logging-logs-reader
+      subjects:
+        - kind: ServiceAccount
+          name: grafana-instance-sa
+          namespace: grafana
+    apply: true
+    state: present
+  register: k8s_result
+  until: k8s_result is not failed
+
+- name: Create Service Account Token
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: grafana-instance-sa-token
+        namespace: grafana
+        annotations:
+          kubernetes.io/service-account.name: grafana-instance-sa
+      type: kubernetes.io/service-account-token
+    apply: true
+    state: present
+  register: k8s_result
+  until: k8s_result is not failed
+
+- name: Wait for Service Account token to be deployed
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: grafana-instance-sa-token
+    namespace: grafana
+  register: grafana_logging_secret
+  until: grafana_logging_secret.resources[0].data.token is defined
+  retries: 60
+  delay: 10
+
+- name: Create Bearer secret
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: grafana-instance-sa-bearer
+        namespace: grafana
+      stringData:
+        BEARER_TOKEN: "Bearer {{ grafana_logging_secret.resources[0].data.token | b64decode }}"
+      type: Opaque
+    apply: true
+    state: present
+  register: k8s_result
+  until: k8s_result is not failed
+
+- name: Create Loki Datasource
+  loop:
+    - application
+    - infrastructure
+    - audit
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: grafana.integreatly.org/v1beta1
+      kind: GrafanaDatasource
+      metadata:
+        name: loki-{{ item }}
+        namespace: grafana
+      spec:
+        valuesFrom:
+          - targetPath: "secureJsonData.httpHeaderValue1"
+            valueFrom:
+              secretKeyRef:
+                name: "grafana-instance-sa-bearer"
+                key: "BEARER_TOKEN"
+        instanceSelector:
+          matchLabels:
+            dashboards: "grafana"
+        datasource:
+          name: "Loki ({{ item }})"
+          type: loki
+          access: proxy
+          url: https://logging-loki-gateway-http.openshift-logging.svc:8080/api/logs/v1/{{ item }}/
+          jsonData:
+            "tlsSkipVerify": true
+            "httpHeaderName1": Authorization
+          secureJsonData:
+            "httpHeaderValue1": ${BEARER_TOKEN}
+    apply: true
+    state: present
+  register: k8s_result
+  until: k8s_result is not failed
