@@ -1,0 +1,13 @@
+- name: Install python packages
+  ansible.builtin.pip:
+    name:
+      - kubernetes
+
+- name: Install Grafana operator # noqa role-name[path]
+  ansible.builtin.include_role:
+    name: "{{ playbook_dir }}/openshift-edge-installer/common/roles/install_operator"
+  vars:
+    operator_name: grafana-operator
+    operator_namespace: openshift-operators
+    channel: alpha
+    catalog_source: community-operators

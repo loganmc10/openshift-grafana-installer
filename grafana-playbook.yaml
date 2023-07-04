@@ -1,0 +1,5 @@
+- name: Install Grafana
+  hosts: localhost
+  gather_facts: false
+  roles:
+    - {role: 'grafana_install', tags: 'grafana_install'}
